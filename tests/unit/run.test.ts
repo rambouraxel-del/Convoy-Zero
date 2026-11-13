@@ -59,7 +59,7 @@ describe('Voyage et règles de secours', () => {
     run.vehicles.command.hp = 5;
     let cur: string | null = null;
     for (let i = 0; i <= run.map.layers; i++) {
-      const id = reachable(run.map, cur)[0];
+      const id: string = reachable(run.map, cur)[0];
       const rep = travelTo(run, id);
       cur = id;
       nonNeg(run);
@@ -94,7 +94,7 @@ describe('Améliorations de run (12+ distinctes, effet observable)', () => {
     grantUpgrade(run, 'rations');
     let cur: string | null = null;
     const used: number[] = [];
-    for (let i = 0; i < 4; i++) { const id = reachable(run.map, cur)[0]; const rep = travelTo(run, id); used.push(rep.foodPaid); cur = id; }
+    for (let i = 0; i < 4; i++) { const id: string = reachable(run.map, cur)[0]; const rep = travelTo(run, id); used.push(rep.foodPaid); cur = id; }
     expect(used).toEqual([2, 0, 2, 0]);
   });
   it('niveau max respecté et achat payant', () => {

@@ -311,6 +311,7 @@ export class DriveScene extends Phaser.Scene {
       this.lightImg.setAlpha(1);
     }
     for (const p of sim.pickups) { this.lightImg.setPosition(p.x, p.y).setScale(0.18); rt.erase(this.lightImg); }
+    if (sim.boss) { this.lightImg.setPosition(sim.boss.x, sim.boss.y).setScale(1.3); rt.erase(this.lightImg); }
     for (const e of sim.enemies) if (e.telegraph > 0 || e.fuse > 0) { this.lightImg.setPosition(e.x, e.y).setScale(0.3); rt.erase(this.lightImg); }
     for (const b of sim.bullets) if (!b.friendly) { this.lightImg.setPosition(b.x, b.y).setScale(0.15); rt.erase(this.lightImg); }
   }

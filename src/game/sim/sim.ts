@@ -415,7 +415,7 @@ export class DriveSim {
         }
         case 'boss': {
           const enraged = e.hp < e.maxHp * 0.5;
-          this.steer(e, 830, ROAD.centerY + Math.sin(e.t * 0.5) * 150, def.speed * (enraged ? 1.5 : 1), dt, 0.5);
+          this.steer(e, 830, ROAD.centerY + Math.sin(e.t * 0.5) * 150, e.x > 960 ? 220 : def.speed * (enraged ? 1.5 : 1), dt, e.x > 960 ? 1 : 0.5);
           // tir en éventail télégraphié
           if (e.telegraph > 0) {
             e.telegraph -= dt;

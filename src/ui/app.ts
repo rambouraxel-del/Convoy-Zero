@@ -52,6 +52,7 @@ export class App {
   private ending = false;
   private confirmReset = false;
   private driveSalt = 0;
+  private lastBuyAt = 0;
   testMode = false;
 
   constructor(private scene: DriveScene, private input: InputManager) {
@@ -215,6 +216,9 @@ export class App {
       }
       case 'buy-meta': {
         const mid = id as MetaUpgradeId;
+        // anti double-clic : le bouton est recréé après achat, on ignore un second clic trop rapproché
+        if (performance.now() - this.lastBuyAt < 450) break;
+        this.lastBuyAt = performance.now();
         if (buyMeta(this.save, mid, Number(el.dataset.lvl))) {
           this.persist();
           audio.play('upgrade');

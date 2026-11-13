@@ -251,3 +251,4 @@ kbd { background: var(--ink-3); border: 1px solid #5a4636; border-bottom-width: 
 .garage-veh .card { padding: 8px 12px; }
 .panel-foot { position: sticky; bottom: -20px; background: linear-gradient(180deg, rgba(29, 22, 18, 0), rgba(29, 22, 18, 0.98) 30%); padding: 10px 0 2px; margin-top: 8px; }
 @media (max-height: 500px) { .hud-v { grid-template-columns: 70px 1fr; } .panel-foot { bottom: -12px; } }
+#ui > .toast-area { pointer-events: none; }
