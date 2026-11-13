@@ -22,3 +22,8 @@ Phase 1 (V1, avant correction) : 0 sous-agent, tout par l'orchestrateur (Opus).
 | H6 | haiku | cz-dev (micro) | correctifs a11y app.ts | src/ui/app.ts | ✅ accepté (clavier, dialogue, focus vérifiés en navigateur par l'orchestrateur) · 118 k tokens · 12 outils · 89 s |
 | S4 | sonnet | cz-dev | correctifs simulation (audit H4) | src/game/sim/sim.ts, tests/unit/simfix.test.ts | ✅ accepté : 196 tests + scripts de preuve de H4 relancés par l'orchestrateur, bugs disparus ; équilibrage inchangé (42,5 %) · 93 k tokens · 8 outils · 105 s |
 | H7 | haiku | cz-tester | vérification indépendante (build, unitaires, e2e, captures, reprise) | docs/audits/verification.md | ✅ build OK · 196/196 unitaires · 16 e2e passés, 0 échec · reprise OK ; point boss complété par l'orchestrateur · 112 k tokens · 48 outils · 343 s |
+
+## Incidents de coordination
+- H7 : rapport final renvoyé 4 fois à l'identique (tâche d'arrière-plan résiduelle qui le relançait) → arrêté par l'orchestrateur (TaskStop). Coût : ~5 k tokens et du bruit, aucun impact sur le code.
+- Définitions `.claude/agents/` non chargées en cours de session → repli `general-purpose` + modèle forcé.
+- Ports : un agent (H5) a trouvé 4175 occupé par S1 et s'est replié sur 4176 sans conflit — l'attribution de ports par mission a fonctionné.
