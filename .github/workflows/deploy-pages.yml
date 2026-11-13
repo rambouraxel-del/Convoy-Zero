@@ -2,7 +2,7 @@ name: Deploy CONVOY ZERO to GitHub Pages
 
 on:
   push:
-    branches: [claude/new-session-ka1x9y]
+    branches: [main, claude/new-session-ka1x9y]
   workflow_dispatch:
 
 permissions:
