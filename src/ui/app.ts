@@ -65,13 +65,14 @@ export class App {
       <div id="screen" class="screen"></div>
       <div id="hud" class="hidden"></div>
       <div id="overlay" class="screen dim hidden"></div>
-      <div class="toast-area" id="toasts"></div>
+      <div class="toast-area" id="toasts" role="status" aria-live="polite"></div>
       <div id="rotate"><div class="phone"></div><h2>Tournez votre téléphone</h2><p class="muted">CONVOY ZERO se joue en mode paysage.</p><button class="btn ghost small" data-act="dismiss-rotate">Continuer quand même</button></div>`;
     this.screenEl = document.getElementById('screen')!;
     this.hudEl = document.getElementById('hud')!;
     this.overlayEl = document.getElementById('overlay')!;
     this.toastEl = document.getElementById('toasts')!;
     this.root.addEventListener('click', (e) => this.onClick(e));
+    this.root.addEventListener('keydown', (e) => this.onKeydown(e));
     this.root.addEventListener('input', (e) => this.onInput(e));
     this.input.onToggle = () => this.updateModeButton();
     this.input.onPause = () => (this.paused ? this.resume() : this.pause());
@@ -153,7 +154,7 @@ export class App {
     const lv = this.run?.upgrades[id] ?? 0;
     const afford = priceScrap === undefined || (this.run?.res.scrap ?? 0) >= priceScrap;
     const pips = Array.from({ length: u.maxLevel }, (_, i) => `<i class="pip ${i < lv ? 'on' : ''}"></i>`).join('');
-    return `<div class="card choice ${afford ? '' : 'disabled'}" data-act="${act}" data-id="${id}" role="button" tabindex="0">
+    return `<div class="card choice ${afford ? '' : 'disabled'}" data-act="${act}" data-id="${id}" role="button" aria-disabled="${afford ? 'false' : 'true'}" tabindex="${afford ? '0' : '-1'}">
       <div class="row"><span class="icon">${u.icon}</span><span class="name">${u.name}</span></div>
       <div class="desc">${u.desc(lv + 1)}</div>
       <div class="row between"><span class="row" style="gap:8px"><span class="tag">${u.category}</span><span class="pips">${pips}</span></span>${priceScrap !== undefined ? `<span class="cost ${afford ? '' : 'no'}">${resHtml('scrap', priceScrap)}</span>` : '<span class="tag">Gratuit</span>'}</div>
@@ -288,7 +289,7 @@ export class App {
       case 'leave': this.toMap(); break;
       case 'pause': this.pause(); break;
       case 'resume': this.resume(); break;
-      case 'pause-settings': this.settingsReturn = 'pause'; this.renderSettings(this.overlayEl); break;
+      case 'pause-settings': this.settingsReturn = 'pause'; this.renderSettings(this.overlayEl); this.overlayEl.querySelector<HTMLElement>('button')?.focus(); break;
       case 'settings-back': if (this.settingsReturn === 'pause') this.openPause(); else this.show('menu'); break;
       case 'toggle-mute': this.save.settings.muted = !this.save.settings.muted; this.settingsChanged(el); break;
       case 'toggle-drive': this.save.settings.driveMode = this.save.settings.driveMode === 'toggle' ? 'hold' : 'toggle'; this.settingsChanged(el); break;
@@ -310,6 +311,19 @@ export class App {
       case 'result-menu': this.run = null; this.show('menu'); break;
       case 'dismiss-rotate': document.getElementById('rotate')?.classList.add('dismissed'); break;
     }
+  }
+
+  /** Clavier : Entrée / Espace activent les éléments non natifs à rôle bouton (cartes, nœuds de carte). */
+  private onKeydown(e: KeyboardEvent) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    if (this.screen === 'drive') return; // en conduite, Espace bascule AUTO / MANUEL (input.ts)
+    const target = e.target as Element;
+    if (target.closest?.('button, input, select, textarea')) return;
+    const el = target.closest?.('[role="button"][data-act]') as HTMLElement | null;
+    if (!el || el.classList.contains('disabled')) return;
+    e.preventDefault();
+    if (e.repeat) return; // pas de réactivation en rafale si la touche reste enfoncée
+    el.dispatchEvent(new MouseEvent('click', { bubbles: true }));
   }
 
   private onInput(e: Event) {
@@ -448,6 +462,7 @@ export class App {
         <h2>Expédition en cours</h2>
         <p>Une expédition sauvegardée existe. En lancer une nouvelle l'abandonne : elle est comptée comme terminée et vous conservez les pièces de convoi méritées jusqu'ici.</p>
         <div class="row center" style="margin-top:12px"><button class="btn ghost" data-act="play-cancel">Annuler</button><button class="btn danger" data-act="play-yes">Abandonner et jouer</button></div></div>`;
+      this.markOverlay('Expédition en cours');
       return;
     }
     this.startRun(seedInput);
@@ -591,7 +606,7 @@ export class App {
     this.screenEl.innerHTML = `<div class="map-layout">
       <div class="map-main">
         <div class="row between"><h2 style="margin:0">Carte — étape ${Math.min(step + 1, map.layers + 1)} / ${map.layers + 1}</h2>${this.resBar(run.res)}</div>
-        <div class="map-svg-wrap"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">${bandsSvg}${edges}${convoyMark}${nodes}</svg></div>
+        <div class="map-svg-wrap"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" role="group" aria-label="Carte des étapes : étape ${Math.min(step + 1, map.layers + 1)} sur ${map.layers + 1}">${bandsSvg}${edges}${convoyMark}${nodes}</svg></div>
       </div>
       <div class="map-side panel" style="width:auto;padding:14px">
         ${info}
@@ -786,6 +801,16 @@ export class App {
         ${inRun ? '<button class="btn danger" data-act="abandon">Abandonner l\'expédition</button>' : ''}
       </div>
       <p class="muted" style="margin-top:12px">${this.storage ? 'L\'expédition est sauvegardée à chaque étape : vous pourrez la reprendre depuis le menu (en pleine conduite, le segment recommence depuis son début). Abandonner la termine.' : 'Stockage local indisponible : l\'expédition ne pourra pas être reprise après avoir quitté.'}</p></div>`;
+    this.markOverlay('Pause');
+  }
+
+  /** Overlay = boîte de dialogue modale : rôle, nom accessible, focus sur le premier bouton. */
+  private markOverlay(label: string) {
+    const o = this.overlayEl;
+    o.setAttribute('role', 'dialog');
+    o.setAttribute('aria-modal', 'true');
+    o.setAttribute('aria-label', label);
+    o.querySelector<HTMLElement>('button')?.focus();
   }
 
   resume() {
@@ -806,6 +831,7 @@ export class App {
       <h2>Abandonner ?</h2>
       <p>L'expédition sera terminée et ne pourra plus être reprise. Vous conservez les pièces de convoi méritées jusqu'ici.</p>
       <div class="row center" style="margin-top:12px"><button class="btn ghost" data-act="resume">Annuler</button><button class="btn danger" data-act="abandon-yes">Abandonner</button></div></div>`;
+    this.markOverlay('Abandonner ?');
   }
 
   // =================================================================== événements / récompenses / atelier
@@ -815,7 +841,7 @@ export class App {
     const ev = EVENTS_BY_ID[node.eventId!];
     let body: string;
     if (this.eventResult) {
-      body = `<div class="result-box">${esc(this.eventResult.text)}</div>
+      body = `<div class="result-box" role="status">${esc(this.eventResult.text)}</div>
         <div class="row center" style="margin-top:14px">${this.eventResult.ambush ? '<button class="btn big danger" data-act="event-fight">Combattre !</button>' : '<button class="btn big" data-act="event-continue">Continuer</button>'}</div>`;
     } else {
       body = `<div class="choices">${ev.choices.map((c, i) => {

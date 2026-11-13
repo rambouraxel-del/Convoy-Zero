@@ -101,6 +101,10 @@ export class DriveSim {
   private aiTimer = 0;
   private aiTargetY: number = ROAD.centerY;
   private endTimer = -1;
+  /** Temps réel non encore simulé (accumulateur du pas fixe). */
+  private acc = 0;
+  /** Le boss final n'apparaît qu'une fois par segment. */
+  private bossSpawned = false;
 
   constructor(cfg: SimConfig) {
     this.cfg = cfg;
@@ -124,13 +128,21 @@ export class DriveSim {
   }
 
   get command(): SimVehicle { return this.vehicles[0]; }
-  get progress(): number { return Math.min(1, this.distance / this.length); }
+  get progress(): number { return this.length > 0 ? Math.min(1, this.distance / this.length) : 1; }
   get done(): boolean { return this.outcome !== null; }
 
   /** Avance la simulation de dt secondes (découpé en pas fixes). */
   update(dt: number, input: SimInput = NO_INPUT) {
-    const steps = Math.min(30, Math.max(1, Math.round(dt / SIM_DT)));
-    for (let i = 0; i < steps && !this.outcome; i++) this.step(SIM_DT, input);
+    // Accumulateur : le reste est reporté, la vitesse simulée ne dépend pas de la cadence d'appel.
+    this.acc += Math.max(0, dt);
+    let n = 0;
+    while (this.acc >= SIM_DT - 1e-9 && n < 30 && !this.outcome) {
+      this.step(SIM_DT, input);
+      this.acc -= SIM_DT;
+      n++;
+    }
+    if (this.acc < 0) this.acc = 0;
+    if (this.acc > SIM_DT * 2) this.acc = SIM_DT * 2; // anti-spirale après un gros à-coup
   }
 
   step(dt: number, input: SimInput) {
@@ -286,7 +298,8 @@ export class DriveSim {
     }
     if (k === 'demo' && this.enemies.length >= 2) return;
     // boss final
-    if (k === 'final' && !this.boss && this.distance > 1400) {
+    if (k === 'final' && !this.bossSpawned && this.distance > 1400) {
+      this.bossSpawned = true;
       this.boss = this.spawnEnemy('boss', VIEW.w + 120, ROAD.centerY);
       this.events.push({ type: 'bossSpawn' });
     }
@@ -374,26 +387,27 @@ export class DriveSim {
       const target = this.nearestVehicle(e.x, e.y) ?? this.command;
       switch (e.type) {
         case 'marauder': {
-          if (e.state === 'retreat') {
+          if (e.state === 'leave') {
+            this.steer(e, -400, e.y, def.speed, dt); // cible au-delà du seuil de retrait (-260)
+          } else if (e.state === 'retreat') {
             if (e.t > 1.2) { e.state = 'act'; e.t = 0; }
             this.steer(e, e.x + 300, e.y + Math.sin(e.phase) * 200, def.speed * 0.8, dt);
           } else {
             this.steer(e, target.x, target.y, def.speed, dt);
             if (e.t > 14) e.state = 'leave';
           }
-          if (e.state === 'leave') this.steer(e, -200, e.y, def.speed, dt);
           break;
         }
         case 'gunner': {
           const holdX = 980 + Math.sin(e.phase) * 120;
           const ty = clamp(target.y + Math.sin(e.t * 0.7 + e.phase) * 110, ROAD_MIN, ROAD_MAX);
-          if (e.t > 22) this.steer(e, VIEW.w + 300, e.y, def.speed, dt); else this.steer(e, holdX, ty, def.speed, dt, 0.6);
+          if (e.t > 22) this.steer(e, VIEW.w + 560, e.y, def.speed, dt); else this.steer(e, holdX, ty, def.speed, dt, 0.6);
           this.shooter(e, target, dt, 1, 430, 9);
           break;
         }
         case 'scout': {
           const ty = ROAD.centerY + Math.sin(e.t * 1.7 + e.phase) * 210;
-          if (e.t > 15) this.steer(e, VIEW.w + 300, ty, def.speed, dt); else this.steer(e, 900 + Math.cos(e.t * 0.8 + e.phase) * 90, ty, def.speed * 1.4, dt);
+          if (e.t > 15) this.steer(e, VIEW.w + 560, ty, def.speed, dt); else this.steer(e, 900 + Math.cos(e.t * 0.8 + e.phase) * 90, ty, def.speed * 1.4, dt);
           this.shooter(e, target, dt, 1, 470, 6);
           break;
         }
@@ -409,7 +423,11 @@ export class DriveSim {
           if (e.fuse <= 0 && d < e.radius + target.radius + 46) e.fuse = def.telegraph;
           if (e.fuse > 0) {
             e.fuse -= dt;
-            if (e.fuse <= 0) { this.explode(e.x, e.y, 95, def.shotDamage * e.damageMul, true); this.killEnemy(e, false); }
+            if (e.fuse <= 0) {
+              // l'émetteur est marqué mort avant le souffle : ni kill du joueur, ni butin ; l'explosion télégraphiée ignore l'invulnérabilité
+              this.killEnemy(e, false);
+              this.explode(e.x, e.y, 95, def.shotDamage * e.damageMul, true, false, true);
+            }
           }
           break;
         }
@@ -461,7 +479,7 @@ export class DriveSim {
             // répulsion
             const nx = (e.x - v.x) / (d || 1), ny = (e.y - v.y) / (d || 1);
             e.vx += nx * 260; e.vy += ny * 260;
-            if (e.type === 'marauder') { e.state = 'retreat'; e.t = 0; }
+            if (e.type === 'marauder' && e.state !== 'leave') { e.state = 'retreat'; e.t = 0; }
           }
         }
       }
@@ -586,7 +604,7 @@ export class DriveSim {
             if (o.dead || o.kind !== 'barrel') continue;
             if ((o.x - b.x) ** 2 + (o.y - b.y) ** 2 < (o.radius + b.radius) ** 2) {
               o.hp -= b.damage; b.life = 0;
-              if (o.hp <= 0) this.detonateObstacle(o);
+              if (o.hp <= 0) this.detonateObstacle(o, true);
               break;
             }
           }
@@ -653,7 +671,7 @@ export class DriveSim {
         if (!v.alive) continue;
         const d = Math.hypot(v.x - o.x, v.y - o.y);
         if (d < v.radius + o.radius - 4) {
-          if (o.kind === 'barrel' || o.kind === 'mine') { this.detonateObstacle(o); break; }
+          if (o.kind === 'barrel' || o.kind === 'mine') { this.detonateObstacle(o, false); break; }
           if (v.invuln <= 0) {
             const dmg = o.kind === 'wreck' ? 14 : o.kind === 'rock' ? 12 : 6;
             this.damageVehicle(v, dmg, false, 'obstacle:' + o.kind);
@@ -667,33 +685,42 @@ export class DriveSim {
       // les ennemis aussi heurtent les mines / barils
       if (!o.dead && (o.kind === 'mine' || o.kind === 'barrel')) {
         for (const e of this.enemies) {
-          if (!e.dead && e.type !== 'boss' && Math.hypot(e.x - o.x, e.y - o.y) < e.radius + o.radius) { this.detonateObstacle(o); break; }
+          if (!e.dead && e.type !== 'boss' && Math.hypot(e.x - o.x, e.y - o.y) < e.radius + o.radius) { this.detonateObstacle(o, false); break; }
         }
       }
     }
     this.obstacles = this.obstacles.filter((o) => !o.dead);
   }
 
-  private detonateObstacle(o: Obstacle) {
+  /**
+   * Règle : kills et butin comptent pour le joueur si c'est son tir qui déclenche le baril/la mine
+   * (byPlayer) ; pas si un véhicule ou un ennemi roule dessus.
+   */
+  private detonateObstacle(o: Obstacle, byPlayer: boolean) {
     if (o.dead) return;
     o.dead = true;
-    this.explode(o.x, o.y, o.kind === 'barrel' ? 100 : 80, o.kind === 'barrel' ? 26 : 24, true);
+    this.explode(o.x, o.y, o.kind === 'barrel' ? 100 : 80, o.kind === 'barrel' ? 26 : 24, true, byPlayer);
   }
 
   // ---------------------------------------------------------------- dégâts
-  private explode(x: number, y: number, r: number, damage: number, hurtsConvoy: boolean) {
+  /**
+   * Règle d'invulnérabilité : les explosions respectent l'invulnérabilité du véhicule, sauf
+   * l'explosion télégraphiée du kamikaze (ignoreInvuln). byPlayer : les ennemis tués comptent
+   * comme kills du joueur et lâchent du butin ; sinon (souffle d'un kamikaze ennemi) ni l'un ni l'autre.
+   */
+  private explode(x: number, y: number, r: number, damage: number, hurtsConvoy: boolean, byPlayer = true, ignoreInvuln = false) {
     this.events.push({ type: 'explosion', x, y, r });
     if (hurtsConvoy) {
       for (const v of this.vehicles) {
         if (!v.alive) continue;
         const d = Math.hypot(v.x - x, v.y - y);
-        if (d < r + v.radius) this.damageVehicle(v, damage * (d < r * 0.5 + v.radius ? 1 : 0.6), true, 'explosion');
+        if (d < r + v.radius) this.damageVehicle(v, damage * (d < r * 0.5 + v.radius ? 1 : 0.6), ignoreInvuln, 'explosion');
       }
     }
     for (const e of this.enemies) {
       if (e.dead) continue;
       const d = Math.hypot(e.x - x, e.y - y);
-      if (d < r + e.radius) this.damageEnemy(e, damage * 1.5, e.x, e.y);
+      if (d < r + e.radius) this.damageEnemy(e, damage * 1.5, e.x, e.y, byPlayer);
     }
   }
 
@@ -702,6 +729,7 @@ export class DriveSim {
     let dmg = raw * v.stats.damageTaken;
     if (dmg >= 20 && (this.cfg.run?.upgrades.shockShield ?? 0) > 0 && v.shieldCd <= 0) {
       v.shieldCd = 12;
+      v.invuln = 0.35;
       this.events.push({ type: 'shield', x: v.x, y: v.y });
       return;
     }
@@ -720,19 +748,21 @@ export class DriveSim {
     }
   }
 
-  damageEnemy(e: SimEnemy, dmg: number, x: number, y: number) {
+  damageEnemy(e: SimEnemy, dmg: number, x: number, y: number, byPlayer = true) {
     if (e.dead) return;
     e.hp -= dmg;
     e.hitFlash = 0.08;
     this.events.push({ type: 'hit', x, y, friendly: true });
-    if (e.hp <= 0) this.killEnemy(e, true);
+    if (e.hp <= 0) this.killEnemy(e, byPlayer);
   }
 
   private killEnemy(e: SimEnemy, loot: boolean) {
     if (e.dead) return;
     e.dead = true;
-    this.kills += 1;
-    this.killsByType[e.type] = (this.killsByType[e.type] ?? 0) + 1;
+    if (loot) { // loot = tué par le joueur
+      this.kills += 1;
+      this.killsByType[e.type] = (this.killsByType[e.type] ?? 0) + 1;
+    }
     this.events.push({ type: 'kill', enemy: e.type, x: e.x, y: e.y });
     if (e.type !== 'kamikaze' || loot) this.events.push({ type: 'explosion', x: e.x, y: e.y, r: e.radius * 1.6 });
     if (e.type === 'kamikaze' && loot) this.explode(e.x, e.y, 70, 20, false);
@@ -741,9 +771,10 @@ export class DriveSim {
     const def = ENEMIES[e.type];
     const n = Math.max(1, Math.round(def.scrap * this.rng.range(0.7, 1.3)));
     const chunks = Math.min(6, n);
+    const base = Math.floor(n / chunks), rem = n % chunks; // total exact = n
     for (let i = 0; i < chunks; i++) {
       const a = this.rng.range(0, Math.PI * 2);
-      this.addPickup('scrap', Math.ceil(n / chunks), e.x, e.y, Math.cos(a) * 140 - this.scroll * 0.3, Math.sin(a) * 140);
+      this.addPickup('scrap', base + (i < rem ? 1 : 0), e.x, e.y, Math.cos(a) * 140 - this.scroll * 0.3, Math.sin(a) * 140);
     }
     if (this.rng.chance(0.08)) this.addPickup('fuel', 2, e.x, e.y, -this.scroll * 0.5, this.rng.range(-80, 80));
     if (this.rng.chance(0.07)) this.addPickup('food', 1, e.x, e.y, -this.scroll * 0.5, this.rng.range(-80, 80));
