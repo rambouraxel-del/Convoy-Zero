@@ -12,10 +12,11 @@ Phase 1 (V1, avant correction) : 0 sous-agent, tout par l'orchestrateur (Opus).
 | id | modèle | rôle | mission | fichiers | statut |
 |---|---|---|---|---|---|
 | S1 | sonnet | cz-dev | perf rendu (pooling, nuit) | src/scenes/DriveScene.ts | en cours |
-| S2 | sonnet | cz-dev | reprise d'expédition | src/game/runSave.ts, src/ui/app.ts, tests/unit/runSave.test.ts | en cours |
-| S3 | sonnet | cz-dev | audio par biome + moteur | src/audio/audio.ts | ✅ livré (tsc/vitest/build OK, test de fumée Node ; son non écouté) — intégration setBiome en attente de app.ts · 80 k tokens · 7 outils · 97 s |
+| S2 | sonnet | cz-dev | reprise d'expédition | src/game/runSave.ts, src/ui/app.ts, tests/unit/runSave.test.ts | ✅ accepté (186 tests revérifiés) ; faille « rechargement après défaite » corrigée par l'orchestrateur · 113 k tokens · 17 outils · 141 s |
+| S3 | sonnet | cz-dev | audio par biome + moteur | src/audio/audio.ts | ✅ livré (tsc/vitest/build OK, test de fumée Node ; son non écouté) — setBiome intégré par l'orchestrateur · 80 k tokens · 7 outils · 97 s |
 | H1 | haiku | cz-auditor | audit a11y/ergonomie UI | docs/audits/ui-a11y.md | ✅ 12 constats (2 hauts confirmés par l'orchestrateur) · 121 k tokens · 13 outils · 104 s |
 | H2 | haiku | cz-auditor | audit équilibrage | docs/audits/balance.md | en cours |
 | H3 | haiku | cz-tester | tests cas limites | tests/unit/edge.test.ts | ✅ accepté — 47 tests, 0 bug trouvé ; revérifié par l orchestrateur · 102 k tokens · 15 outils · 77 s |
 | H4 | haiku | cz-auditor | revue bugs simulation | docs/audits/sim-review.md | en cours |
 | H5 | haiku | cz-dev (micro) | correctifs a11y hors app.ts | styles.css, index.html, icons.ts | en cours |
+| H6 | haiku | cz-dev (micro) | correctifs a11y app.ts | src/ui/app.ts | en cours |
