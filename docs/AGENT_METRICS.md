@@ -17,6 +17,7 @@ Phase 1 (V1, avant correction) : 0 sous-agent, tout par l'orchestrateur (Opus).
 | H1 | haiku | cz-auditor | audit a11y/ergonomie UI | docs/audits/ui-a11y.md | ✅ 12 constats (2 hauts confirmés par l'orchestrateur) · 121 k tokens · 13 outils · 104 s |
 | H2 | haiku | cz-auditor | audit équilibrage | docs/audits/balance.md | en cours |
 | H3 | haiku | cz-tester | tests cas limites | tests/unit/edge.test.ts | ✅ accepté — 47 tests, 0 bug trouvé ; revérifié par l orchestrateur · 102 k tokens · 15 outils · 77 s |
-| H4 | haiku | cz-auditor | revue bugs simulation | docs/audits/sim-review.md | en cours |
+| H4 | haiku | cz-auditor | revue bugs simulation | docs/audits/sim-review.md | ✅ 8 constats dont 2 hauts confirmés par l'orchestrateur (réapparition boss, pas de temps 120 Hz) · 129 k tokens · 14 outils · 196 s |
 | H5 | haiku | cz-dev (micro) | correctifs a11y hors app.ts | styles.css, index.html, icons.ts | en cours |
 | H6 | haiku | cz-dev (micro) | correctifs a11y app.ts | src/ui/app.ts | en cours |
+| S4 | sonnet | cz-dev | correctifs simulation (audit H4) | src/game/sim/sim.ts, tests/unit/simfix.test.ts | en cours |
