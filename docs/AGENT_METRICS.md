@@ -21,4 +21,4 @@ Phase 1 (V1, avant correction) : 0 sous-agent, tout par l'orchestrateur (Opus).
 | H5 | haiku | cz-dev (micro) | correctifs a11y hors app.ts | styles.css, index.html, icons.ts | ✅ accepté (capture mobile revérifiée par l'orchestrateur) · 93 k tokens · 19 outils · 94 s |
 | H6 | haiku | cz-dev (micro) | correctifs a11y app.ts | src/ui/app.ts | ✅ accepté (clavier, dialogue, focus vérifiés en navigateur par l'orchestrateur) · 118 k tokens · 12 outils · 89 s |
 | S4 | sonnet | cz-dev | correctifs simulation (audit H4) | src/game/sim/sim.ts, tests/unit/simfix.test.ts | ✅ accepté : 196 tests + scripts de preuve de H4 relancés par l'orchestrateur, bugs disparus ; équilibrage inchangé (42,5 %) · 93 k tokens · 8 outils · 105 s |
-| H7 | haiku | cz-tester | vérification indépendante finale (build, unitaires, e2e, captures) | aucun fichier source | en cours |
+| H7 | haiku | cz-tester | vérification indépendante (build, unitaires, e2e, captures, reprise) | docs/audits/verification.md | ✅ build OK · 196/196 unitaires · 16 e2e passés, 0 échec · reprise OK ; point boss complété par l'orchestrateur · 112 k tokens · 48 outils · 343 s |
