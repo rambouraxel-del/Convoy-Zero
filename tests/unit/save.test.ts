@@ -50,7 +50,7 @@ describe('Sauvegarde', () => {
     expect(buyMeta(s, 'hull', lvl)).toBe(true);
     expect(buyMeta(s, 'hull', lvl)).toBe(false); // second clic avec l'ancien niveau
     expect(s.meta.hull).toBe(1);
-    expect(s.coins).toBe(88);
+    expect(s.coins).toBe(82);
     s.coins = 0;
     expect(buyMeta(s, 'hull')).toBe(false);
     s.coins = 1000; s.meta.hull = 3;

@@ -22,7 +22,7 @@ export const EVENTS: EventDef[] = [
         { p: 0.75, effect: { res: { fuel: 18 }, text: 'Les cuves livrent un bon plein.' } },
         { p: 0.25, effect: { res: { fuel: 6 }, hpPct: { target: 'all', pct: -0.1 }, text: 'Une poche de vapeur s\'enflamme ! Peu de carburant récupéré.' } },
       ] },
-      { label: 'Pompe manuelle (lent, sûr)', cost: { food: 2 }, outcomes: [{ p: 1, effect: { res: { fuel: 12 }, text: 'Des heures de pompage, mais aucun risque.' } }] },
+      { label: 'Pompe manuelle (lent, sûr)', cost: { food: 2 }, outcomes: [{ p: 1, effect: { res: { fuel: 16 }, text: 'Des heures de pompage, mais aucun risque : +16 carburant.' } }] },
       leave,
     ],
   },

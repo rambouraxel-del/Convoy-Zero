@@ -39,12 +39,12 @@ export interface MetaUpgradeDef {
 }
 
 export const META_UPGRADES: Record<MetaUpgradeId, MetaUpgradeDef> = {
-  hull: { id: 'hull', name: 'Châssis renforcés', costs: [12, 28, 50], icon: '🛡', desc: (l) => `+${l * 12} % PV initiaux` },
-  tanks: { id: 'tanks', name: 'Réservoirs auxiliaires', costs: [10, 24, 44], icon: '⛽', desc: (l) => `+${l * 10} carburant au départ` },
-  magnet: { id: 'magnet', name: 'Aimants de récupération', costs: [10, 22, 40], icon: '⊂', desc: (l) => `+${l * 15} % rayon de ramassage` },
-  guns: { id: 'guns', name: 'Armurerie', costs: [14, 30, 55], icon: '✦', desc: (l) => `+${l * 8} % de dégâts` },
-  pantry: { id: 'pantry', name: 'Garde-manger', costs: [8, 20, 36], icon: '☰', desc: (l) => `+${l * 3} provisions au départ` },
-  workshop: { id: 'workshop', name: 'Atelier mobile', costs: [12, 26, 46], icon: '✚', desc: (l) => `Réparations ${l * 15} % moins chères, +${l * 5} ferraille au départ` },
+  hull: { id: 'hull', name: 'Châssis renforcés', costs: [18, 42, 75], icon: '🛡', desc: (l) => `+${l * 12} % PV initiaux` },
+  tanks: { id: 'tanks', name: 'Réservoirs auxiliaires', costs: [15, 36, 66], icon: '⛽', desc: (l) => `+${l * 10} carburant au départ` },
+  magnet: { id: 'magnet', name: 'Aimants de récupération', costs: [15, 33, 60], icon: '⊂', desc: (l) => `+${l * 15} % rayon de ramassage` },
+  guns: { id: 'guns', name: 'Armurerie', costs: [21, 45, 82], icon: '✦', desc: (l) => `+${l * 8} % de dégâts` },
+  pantry: { id: 'pantry', name: 'Garde-manger', costs: [12, 30, 54], icon: '☰', desc: (l) => `+${l * 3} provisions au départ` },
+  workshop: { id: 'workshop', name: 'Atelier mobile', costs: [18, 39, 69], icon: '✚', desc: (l) => `Réparations ${l * 15} % moins chères, +${l * 5} ferraille au départ` },
 };
 
 export const META_MAX = 3;
