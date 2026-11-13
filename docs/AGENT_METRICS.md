@@ -27,3 +27,9 @@ Phase 1 (V1, avant correction) : 0 sous-agent, tout par l'orchestrateur (Opus).
 - H7 : rapport final renvoyé 4 fois à l'identique (tâche d'arrière-plan résiduelle qui le relançait) → arrêté par l'orchestrateur (TaskStop). Coût : ~5 k tokens et du bruit, aucun impact sur le code.
 - Définitions `.claude/agents/` non chargées en cours de session → repli `general-purpose` + modèle forcé.
 - Ports : un agent (H5) a trouvé 4175 occupé par S1 et s'est replié sur 4176 sans conflit — l'attribution de ports par mission a fonctionné.
+| M1 | haiku | cz-memory | checkpoint mémoire (7 documents) | STATE, TASKS, ISSUES, DECISIONS, HANDOFF, RAPPORT, README | ✅ accepté avec corrections de l'orchestrateur (règle D16 mal retranscrite, chiffres non remesurés remplacés par mesures) · 112 k tokens · 10 outils · 93 s |
+
+## Bilan vague 2
+- 12 agents lancés (4 Sonnet, 8 Haiku), pic de parallélisme 7. 12/12 livrables acceptés ; 5 ont nécessité un complément de l'orchestrateur (S2 faille, S3 branchement, H7 point boss, M1 corrections, H2 décisions).
+- Défauts trouvés par des agents et absents des tests existants : 8 (simulation) + 12 (accessibilité) + 2 bugs UI ; 0 par H3 (tests de cas limites).
+- Coût cumulé ≈ 1,3 M tokens de sous-agents (somme des valeurs rapportées par le runtime).

@@ -38,7 +38,14 @@ Les tirs sont automatiques (priorité : kamikazes amorcés, tireurs qui visent, 
 - **Biomes** : désert (rafales de sable), industriel (barils explosifs, épaves), nuit (obscurité + phares, mines).
 - **Ressources** : carburant (par étape), ferraille (réparations/achats), provisions (2 par étape). Jamais négatives. Règles de secours anti-blocage annoncées en jeu.
 - **Contenu** : 10 événements, 14 améliorations de run, 6 améliorations permanentes (3 niveaux), monnaie « pièces de convoi ».
-- **Sauvegarde** : LocalStorage versionné (`convoy-zero.save`, v2, migration v1, données corrompues gérées). Pas de reprise en milieu d'expédition en V1 (annoncé en jeu).
+- **Sauvegarde** : LocalStorage versionné (`convoy-zero.save`, v2, migration v1, données corrompues gérées).
+
+### Reprise d'expédition
+
+- La phase en cours (carte, conduite, événement, atelier, camp) est sauvegardée dans `convoy-zero.run`. Le menu affiche alors « Reprendre l'expédition ».
+- La reprise restaure le nœud et les ressources au moment de la sauvegarde. Le carburant déjà payé n'est pas débité une seconde fois.
+- Une défaite efface la sauvegarde de reprise : recharger après une défaite ne permet pas de rejouer le segment perdu. Les pièces de convoi sont perdues si le rechargement intervient moins de 1,4 s après la défaite.
+- Limite : la reprise est testée en phase de conduite ; les autres phases le sont par le code.
 
 ## Architecture
 
@@ -52,7 +59,7 @@ src/
   render/textures.ts    textures procédurales (Canvas 2D)
   audio/audio.ts        SFX et musique générative (Web Audio)
   ui/                   écrans DOM/CSS, HUD, joystick
-tests/unit              Vitest (130 tests)   tests/e2e   Playwright (desktop + mobile)
+tests/unit              Vitest (196 tests)   tests/e2e   Playwright (desktop + mobile)
 ```
 
 ## Attribution des assets

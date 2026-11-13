@@ -4,7 +4,7 @@
 
 | Critère | État | Preuve |
 |---|---|---|
-| `npm install`, `npm run build`, `npm test` | ✅ | build Vite OK, 130 tests Vitest |
+| `npm install`, `npm run build`, `npm test` | ✅ | build Vite OK, 196 tests Vitest (revérifiés après l'équilibrage final) |
 | E2E desktop + mobile | ✅ | `tests/e2e` : 16 passés (Chromium 1280×720 et Pixel 7 paysage émulé) |
 | Menu → garage → expédition → carte/rencontre/événement → victoire/défaite → garage | ✅ | e2e « parcours complet » et « défaite » |
 | Pilotage auto + manuel | ✅ | e2e clavier, e2e joystick, test unitaire d'évitement |
@@ -26,9 +26,14 @@
 Voir ISSUES.md (6 défauts, dont 3 de sévérité haute, tous corrigés et couverts par des tests).
 
 ## Orchestration (§16, métriques réelles uniquement)
-- Agents invoqués : **0 sous-agent** ; tout réalisé par l'orchestrateur dans une session (D13). Pic de parallélisme : 1 agent + exécution en arrière-plan des tests navigateur.
-- Tâches réouvertes : 2 (équilibrage, puis 2 bugs UI trouvés par l'e2e).
-- Tokens par tâche : non observables dans cet environnement.
+
+Source : docs/AGENT_METRICS.md.
+- Phase 1 (V1) : 0 sous-agent, tout par l'orchestrateur (D13).
+- Vague 2 : **11 agents** (4 Sonnet pour le code, 7 Haiku pour les audits, tests et micro-corrections). **Pic de parallélisme : 7 agents.**
+- Tâches : 11 livrées, 11 acceptées par l'orchestrateur ; **0 réouverte** en vague 2 (2 réouvertures en phase 1).
+- Tokens cumulés (somme des valeurs par agent, non mesure de session) : ≈ 1,20 M. Outils : 200. Durée cumulée des agents : ≈ 2 900 s (le temps réel est plus court, les agents tournant en parallèle).
+- Incident : un renvoi de rapport répété 4 fois (tâche d'arrière-plan résiduelle), arrêté par l'orchestrateur ; coût ≈ 5 k tokens, sans effet sur le code.
+- Limite : les rôles `.claude/agents/` n'ont pas été chargés dans la session (repli D14) ; ils le seront à la prochaine session.
 
 ## Prochaine itération proposée
-Reprise d'expédition, test appareils réels, musiques par biome, mode difficulté, publication GitHub Pages (sur accord).
+Test appareils réels, reprise après segment (événement, atelier, camp), ferraille excédentaire, mode difficulté, publication GitHub Pages (sur accord).
