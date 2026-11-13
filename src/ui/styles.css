@@ -263,3 +263,4 @@ kbd { background: var(--ink-3); border: 1px solid #5a4636; border-bottom-width: 
   .toast { animation: toast-fade 3.2s forwards; }
 }
 @keyframes toast-fade { 0% { opacity: 0; } 8% { opacity: 1; } 85% { opacity: 1; } 100% { opacity: 0; } }
+@media (max-height: 500px) { .hud-v { grid-template-columns: 82px 1fr; } }
