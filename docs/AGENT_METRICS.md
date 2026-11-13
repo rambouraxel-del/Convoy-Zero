@@ -16,5 +16,5 @@ Phase 1 (V1, avant correction) : 0 sous-agent, tout par l'orchestrateur (Opus).
 | S3 | sonnet | cz-dev | audio par biome + moteur | src/audio/audio.ts | en cours |
 | H1 | haiku | cz-auditor | audit a11y/ergonomie UI | docs/audits/ui-a11y.md | en cours |
 | H2 | haiku | cz-auditor | audit équilibrage | docs/audits/balance.md | en cours |
-| H3 | haiku | cz-tester | tests cas limites | tests/unit/edge.test.ts | en cours |
+| H3 | haiku | cz-tester | tests cas limites | tests/unit/edge.test.ts | ✅ accepté — 47 tests, 0 bug trouvé ; revérifié par l orchestrateur · 102 k tokens · 15 outils · 77 s |
 | H4 | haiku | cz-auditor | revue bugs simulation | docs/audits/sim-review.md | en cours |
