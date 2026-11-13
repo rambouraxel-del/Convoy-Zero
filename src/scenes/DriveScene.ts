@@ -20,6 +20,7 @@ export interface DriveCallbacks {
 interface VehicleView { body: Phaser.GameObjects.Image; turret: Phaser.GameObjects.Image; shadow: Phaser.GameObjects.Image; smokeT: number; dustT: number }
 
 const COLORS = { scrap: '#d8dde3', fuel: '#ff8a6a', food: '#a6d86a' };
+const DARK_SCALE = 2;
 const ENEMY_SCALE: Record<EnemyType, number> = { marauder: 1, gunner: 1, scout: 1, brute: 1, kamikaze: 1, boss: 1 };
 
 export class DriveScene extends Phaser.Scene {
@@ -37,6 +38,7 @@ export class DriveScene extends Phaser.Scene {
   private pickupViews = new Map<number, Phaser.GameObjects.Image>();
   private obstacleViews = new Map<number, Phaser.GameObjects.Image>();
   private decor: Phaser.GameObjects.Image[] = [];
+  private pool: Phaser.GameObjects.Image[] = [];
   private decorTimer = 0;
   private overlay!: Phaser.GameObjects.Graphics;
   private dark!: Phaser.GameObjects.RenderTexture;
@@ -63,7 +65,8 @@ export class DriveScene extends Phaser.Scene {
     buildTextures(this);
     this.ground = this.add.tileSprite(0, 0, VIEW.w, VIEW.h, 'ground_desert').setOrigin(0).setDepth(0);
     this.overlay = this.add.graphics().setDepth(10);
-    this.dark = this.add.renderTexture(0, 0, VIEW.w, VIEW.h).setOrigin(0).setDepth(9).setVisible(false);
+    // calque d'obscurité à demi-résolution, étiré ×2 (les halos sont flous : aucune perte visible)
+    this.dark = this.add.renderTexture(0, 0, Math.ceil(VIEW.w / DARK_SCALE), Math.ceil(VIEW.h / DARK_SCALE)).setOrigin(0).setScale(DARK_SCALE).setDepth(9).setVisible(false);
     this.lightImg = this.make.image({ key: 'light', add: false });
     this.headImg = this.make.image({ key: 'headlight', add: false }).setOrigin(0, 0.5);
 
@@ -133,10 +136,10 @@ export class DriveScene extends Phaser.Scene {
 
   private clearWorld() {
     for (const m of [this.enemyViews, this.bulletViews, this.pickupViews, this.obstacleViews]) {
-      for (const s of m.values()) s.destroy();
+      for (const s of m.values()) this.release(s);
       m.clear();
     }
-    for (const d of this.decor) d.destroy();
+    for (const d of this.decor) this.release(d);
     this.decor = [];
     for (const t of this.texts) t.destroy();
     this.texts = [];
@@ -169,6 +172,19 @@ export class DriveScene extends Phaser.Scene {
     this.cb?.onFrame(sim);
   }
 
+  // -------------------------------------------------------------- pool d'images
+  private acquire(x: number, y: number, key: string, depth: number): Phaser.GameObjects.Image {
+    const img = this.pool.pop();
+    if (!img) return this.add.image(x, y, key).setDepth(depth);
+    return img.setTexture(key).setPosition(x, y).setDepth(depth).setScale(1).setRotation(0).setAlpha(1)
+      .clearTint().setBlendMode(Phaser.BlendModes.NORMAL).setVisible(true).setActive(true);
+  }
+
+  private release(img: Phaser.GameObjects.Image) {
+    img.setVisible(false).setActive(false);
+    this.pool.push(img);
+  }
+
   // -------------------------------------------------------------- synchronisation des sprites
   private sync(sim: DriveSim, dt: number) {
     for (const v of sim.vehicles) {
@@ -196,14 +212,14 @@ export class DriveScene extends Phaser.Scene {
       }
       view.dustT -= dt;
       if (view.dustT <= 0 && !this.paused) {
-        view.dustT = 0.05;
+        view.dustT = 0.08;
         this.dust.emitParticleAt(v.x - view.body.width / 2, v.y + this.rng.range(-view.body.height / 3, view.body.height / 3), 1);
       }
     }
 
+    const rel = (img: Phaser.GameObjects.Image) => this.release(img);
     syncMap(this.enemyViews, sim.enemies, (e) => {
-      const img = this.add.image(e.x, e.y, `e_${e.type}`).setDepth(e.type === 'boss' ? 5.5 : 5).setScale(ENEMY_SCALE[e.type]);
-      return img;
+      return this.acquire(e.x, e.y, `e_${e.type}`, e.type === 'boss' ? 5.5 : 5).setScale(ENEMY_SCALE[e.type]);
     }, (img, e) => {
       img.setPosition(e.x, e.y);
       let ang: number;
@@ -217,30 +233,30 @@ export class DriveScene extends Phaser.Scene {
       if (e.hitFlash > 0) img.setTintFill(0xffffff);
       else if (e.type === 'kamikaze' && Math.floor(sim.time * (e.fuse > 0 ? 16 : 4)) % 2 === 0) img.setTint(0xff8a7a);
       else img.clearTint();
-    });
+    }, rel);
 
     syncMap(this.bulletViews, sim.bullets, (b) => {
       const key = b.friendly ? (b.heavy ? 'bullet_h' : 'bullet_f') : 'bullet_e';
-      const img = this.add.image(b.x, b.y, key).setDepth(7).setBlendMode(Phaser.BlendModes.ADD);
+      const img = this.acquire(b.x, b.y, key, 7).setBlendMode(Phaser.BlendModes.ADD);
       if (!b.friendly) img.setScale((b.radius * 2.4) / 24);
       return img;
     }, (img, b) => {
       img.setPosition(b.x, b.y);
       if (b.friendly) img.setRotation(Math.atan2(b.vy, b.vx));
       else img.setRotation(img.rotation + dt * 8);
-    });
+    }, rel);
 
-    syncMap(this.pickupViews, sim.pickups, (p) => this.add.image(p.x, p.y, `p_${p.kind}`).setDepth(2.5), (img, p) => {
+    syncMap(this.pickupViews, sim.pickups, (p) => this.acquire(p.x, p.y, `p_${p.kind}`, 2.5), (img, p) => {
       img.setPosition(p.x, p.y).setScale(1 + Math.sin(sim.time * 6 + p.uid) * 0.08);
-    });
+    }, rel);
 
     syncMap(this.obstacleViews, sim.obstacles, (o) => {
       const key = o.kind === 'rock' ? (o.uid % 2 ? 'o_rock' : 'o_rock2') : `o_${o.kind}`;
-      return this.add.image(o.x, o.y, key).setDepth(o.kind === 'pothole' ? 1.5 : 3).setRotation((o.uid * 1.7) % 6.28);
+      return this.acquire(o.x, o.y, key, o.kind === 'pothole' ? 1.5 : 3).setRotation((o.uid * 1.7) % 6.28);
     }, (img, o) => {
       img.setPosition(o.x, o.y);
       if (o.kind === 'mine') img.setAlpha(Math.floor(sim.time * 3 + o.uid) % 2 ? 1 : 0.75);
-    });
+    }, rel);
 
     this.drawOverlay(sim);
     if (this.biome === 'night') this.drawDarkness(sim);
@@ -296,24 +312,30 @@ export class DriveScene extends Phaser.Scene {
 
   private drawDarkness(sim: DriveSim) {
     const rt = this.dark;
+    const k = 1 / DARK_SCALE;
     rt.clear();
     rt.fill(0x070912, 0.74);
+    // une seule passe d'effacement groupée (un seul flush GPU)
+    rt.beginDraw();
+    const li = this.lightImg;
+    const light = (x: number, y: number, scale: number, alpha = 1) => {
+      li.setPosition(x * k, y * k).setScale(scale * k).setAlpha(alpha);
+      rt.batchDraw(li);
+    };
     for (const v of sim.vehicles) {
       if (!v.alive || v.x < -100) continue;
-      this.headImg.setPosition(v.x + v.radius * 0.6, v.y).setRotation(Math.atan2(v.vy, sim.scroll) * 0.5).setScale(v.id === 'command' ? 1.1 : 0.8);
-      rt.erase(this.headImg);
-      this.lightImg.setPosition(v.x, v.y).setScale(0.75);
-      rt.erase(this.lightImg);
+      this.headImg.setPosition((v.x + v.radius * 0.6) * k, v.y * k).setRotation(Math.atan2(v.vy, sim.scroll) * 0.5)
+        .setScale((v.id === 'command' ? 1.1 : 0.8) * k);
+      rt.batchDraw(this.headImg);
+      light(v.x, v.y, 0.75);
     }
-    for (const f of this.flashes) {
-      this.lightImg.setPosition(f.x, f.y).setScale((f.r / 128) * Math.min(1, f.t * 3)).setAlpha(Math.min(1, f.t * 3));
-      rt.erase(this.lightImg);
-      this.lightImg.setAlpha(1);
-    }
-    for (const p of sim.pickups) { this.lightImg.setPosition(p.x, p.y).setScale(0.18); rt.erase(this.lightImg); }
-    if (sim.boss) { this.lightImg.setPosition(sim.boss.x, sim.boss.y).setScale(1.3); rt.erase(this.lightImg); }
-    for (const e of sim.enemies) if (e.telegraph > 0 || e.fuse > 0) { this.lightImg.setPosition(e.x, e.y).setScale(0.3); rt.erase(this.lightImg); }
-    for (const b of sim.bullets) if (!b.friendly) { this.lightImg.setPosition(b.x, b.y).setScale(0.15); rt.erase(this.lightImg); }
+    for (const f of this.flashes) light(f.x, f.y, (f.r / 128) * Math.min(1, f.t * 3), Math.min(1, f.t * 3));
+    for (const p of sim.pickups) light(p.x, p.y, 0.18);
+    if (sim.boss) light(sim.boss.x, sim.boss.y, 1.3);
+    for (const e of sim.enemies) if (e.telegraph > 0 || e.fuse > 0) light(e.x, e.y, 0.3);
+    for (const b of sim.bullets) if (!b.friendly) light(b.x, b.y, 0.15);
+    rt.endDraw(true);
+    li.setAlpha(1);
   }
 
   // -------------------------------------------------------------- événements → effets
@@ -383,7 +405,7 @@ export class DriveScene extends Phaser.Scene {
   // -------------------------------------------------------------- décor
   private updateDecor(dt: number, scroll: number) {
     for (const d of this.decor) d.x -= scroll * dt;
-    this.decor = this.decor.filter((d) => { if (d.x < -200) { d.destroy(); return false; } return true; });
+    this.decor = this.decor.filter((d) => { if (d.x < -200) { this.release(d); return false; } return true; });
     this.decorTimer -= dt;
     if (this.decorTimer <= 0) {
       this.decorTimer = this.rng.range(0.35, 0.8);
@@ -399,7 +421,7 @@ export class DriveScene extends Phaser.Scene {
     for (const d of list) { r -= d.weight; if (r <= 0) { def = d; break; } }
     const top = this.rng.chance(0.5);
     const y = top ? this.rng.range(10, ROAD.top - 40) : this.rng.range(ROAD.bottom + 40, VIEW.h - 10);
-    const img = this.add.image(x, y, `d_${def.kind}`).setDepth(1).setRotation(def.kind === 'sign' ? 0 : this.rng.range(-0.3, 0.3));
+    const img = this.acquire(x, y, `d_${def.kind}`, 1).setRotation(def.kind === 'sign' ? 0 : this.rng.range(-0.3, 0.3));
     if (this.biome === 'night') img.setTint(0x9a8fa8);
     this.decor.push(img);
   }
@@ -408,6 +430,7 @@ export class DriveScene extends Phaser.Scene {
 function syncMap<T extends { uid: number }>(
   map: Map<number, Phaser.GameObjects.Image>, items: T[],
   create: (t: T) => Phaser.GameObjects.Image, update: (img: Phaser.GameObjects.Image, t: T) => void,
+  release: (img: Phaser.GameObjects.Image) => void,
 ) {
   const seen = new Set<number>();
   for (const it of items) {
@@ -416,7 +439,7 @@ function syncMap<T extends { uid: number }>(
     if (!img) { img = create(it); map.set(it.uid, img); }
     update(img, it);
   }
-  for (const [uid, img] of map) if (!seen.has(uid)) { img.destroy(); map.delete(uid); }
+  for (const [uid, img] of map) if (!seen.has(uid)) { release(img); map.delete(uid); }
 }
 
 function dashed(g: Phaser.GameObjects.Graphics, x0: number, y0: number, x1: number, y1: number, dash: number, gap: number) {

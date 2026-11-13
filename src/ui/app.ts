@@ -12,6 +12,7 @@ import {
   addRes, canAfford, coinsEarned, completeStep, createRun, fieldRepair, fieldRepairCost, fuelCostFor, grantUpgrade, healPct,
   pay, randomUpgradeChoices, repairCost, repairVehicle, resolveEventChoice, travelTo, VEHICLE_IDS, buyUpgrade, rngFor,
 } from '../game/run';
+import { clearRun, loadRun, writeRun, type RunPhase, type RunSave } from '../game/runSave';
 import { buyMeta, defaultSave, getStorage, loadSave, metaCost, writeSave, type StorageLike } from '../game/save';
 import type { DriveSim, SegmentKind, SimEvent } from '../game/sim/sim';
 import { ALL_META_UPGRADES, META_MAX, META_UPGRADES, RUN_UPGRADES, vehicleStats } from '../game/upgrades';
@@ -53,6 +54,7 @@ export class App {
   private confirmReset = false;
   private driveSalt = 0;
   private lastBuyAt = 0;
+  private pendingSeed: string | undefined;
   testMode = false;
 
   constructor(private scene: DriveScene, private input: InputManager) {
@@ -181,6 +183,17 @@ export class App {
     }
     if (name === 'menu' || name === 'garage' || name === 'howto' || (name === 'settings' && !this.run)) audio.setMood('menu');
     this.screenEl.scrollTop = 0;
+    if (name === 'map') this.saveRun('map');
+    else if (name === 'event' || name === 'reward' || name === 'workshop' || name === 'camp') this.saveRun('post');
+  }
+
+  /** Point de sauvegarde de l'expédition en cours (reprise). Silencieux si stockage indisponible. */
+  private saveRun(phase: RunPhase) {
+    const run = this.run;
+    if (!run || run.outcome) return;
+    writeRun(this.storage, run, phase, {
+      eventResult: this.eventResult, rewardOffers: this.rewardOffers, workshopOffers: this.workshopOffers, campUsed: [...this.campUsed],
+    }, this.driveSalt);
   }
 
   back() {
@@ -204,14 +217,17 @@ export class App {
     audio.unlock();
     audio.play(act.startsWith('back') || act === 'menu' ? 'uiBack' : 'ui');
     switch (act) {
-      case 'play': this.startRun(); break;
+      case 'play': this.requestRun(); break;
+      case 'play-yes': this.abandonSavedRun(); this.startRun(this.pendingSeed); break;
+      case 'play-cancel': this.overlayEl.classList.add('hidden'); break;
+      case 'resume-run': this.resumeRun(); break;
       case 'garage': this.show('garage'); break;
       case 'howto': this.show('howto'); break;
       case 'settings': this.settingsReturn = 'menu'; this.show('settings'); break;
       case 'menu': case 'back-menu': this.show('menu'); break;
       case 'launch': {
         const inp = document.getElementById('seed') as HTMLInputElement | null;
-        this.startRun(inp?.value);
+        this.requestRun(inp?.value);
         break;
       }
       case 'buy-meta': {
@@ -321,6 +337,10 @@ export class App {
   // =================================================================== menu / garage / aide / réglages
   private renderMenu() {
     const p = this.save.profile;
+    const saved = loadRun(this.storage);
+    const resumeBtn = saved
+      ? `<button class="btn alt" data-act="resume-run">Reprendre l'expédition<br><span class="muted" style="font-size:13px">Graine ${esc(saved.run.seed)} · ${this.runStepLabel(saved)}</span></button>`
+      : '';
     this.scene.startDemo();
     this.screenEl.innerHTML = `
       <div class="title-wrap">
@@ -328,7 +348,7 @@ export class App {
         <div class="tagline">Traverser les terres mortes. Ensemble.</div>
       </div>
       <div class="menu-buttons">
-        <button class="btn big" data-act="play" autofocus>Jouer</button>
+        ${resumeBtn}<button class="btn big" data-act="play" autofocus>Jouer</button>
         <button class="btn alt" data-act="garage">Garage</button>
         <button class="btn ghost" data-act="howto">Comment jouer</button>
         <button class="btn ghost" data-act="settings">Paramètres</button>
@@ -337,6 +357,12 @@ export class App {
         <span class="coins">◉ ${this.save.coins} pièces de convoi</span> · Expéditions : ${p.runs} · Victoires : ${p.victories} · Record : ${p.bestSteps} étapes
         ${this.storage ? '' : '<br><span style="color:var(--danger)">Stockage local indisponible : la progression ne sera pas sauvegardée.</span>'}
       </div>`;
+  }
+
+  private runStepLabel(s: RunSave): string {
+    const total = s.run.map.layers + 1;
+    const step = s.phase === 'map' ? s.run.visited.length + 1 : s.run.visited.length;
+    return `étape ${Math.min(Math.max(step, 1), total)} / ${total}`;
   }
 
   private renderGarage() {
@@ -391,7 +417,7 @@ export class App {
       <h3>Menaces</h3>
       <div class="enemy-list">${enemies}</div>
       <p class="muted" style="margin-top:10px">Lignes rouges pointillées = tir imminent : changez de voie. Cercle rouge = kamikaze sur le point d'exploser. Biomes : ${Object.values(BIOMES).map((b) => `<b>${b.name}</b> (${b.hazard.toLowerCase()})`).join(', ')}.</p>
-      <p class="muted">Quitter une expédition en cours la termine (pas de reprise en V1) ; les pièces déjà méritées sont conservées.</p>
+      <p class="muted">Une expédition en cours est sauvegardée à chaque étape : le menu propose alors « Reprendre l'expédition » (en pleine conduite, le segment recommence depuis son début, carburant déjà payé). Abandonner la termine ; les pièces déjà méritées sont conservées.</p>
       <div class="row center" style="margin-top:12px"><button class="btn" data-act="back-menu">Compris</button></div>
     </div>`;
   }
@@ -413,6 +439,52 @@ export class App {
   }
 
   // =================================================================== expédition
+  /** « Jouer » / « Lancer » : si une expédition sauvegardée existe, demande confirmation (elle serait perdue). */
+  private requestRun(seedInput?: string) {
+    if (loadRun(this.storage)) {
+      this.pendingSeed = seedInput;
+      this.overlayEl.classList.remove('hidden');
+      this.overlayEl.innerHTML = `<div class="panel narrow" style="text-align:center">
+        <h2>Expédition en cours</h2>
+        <p>Une expédition sauvegardée existe. En lancer une nouvelle l'abandonne : elle est comptée comme terminée et vous conservez les pièces de convoi méritées jusqu'ici.</p>
+        <div class="row center" style="margin-top:12px"><button class="btn ghost" data-act="play-cancel">Annuler</button><button class="btn danger" data-act="play-yes">Abandonner et jouer</button></div></div>`;
+      return;
+    }
+    this.startRun(seedInput);
+  }
+
+  /** Règle une expédition abandonnée depuis la sauvegarde (sans bilan) : pièces attribuées, profil mis à jour. */
+  private abandonSavedRun() {
+    const saved = loadRun(this.storage);
+    clearRun(this.storage);
+    this.overlayEl.classList.add('hidden');
+    if (!saved) return;
+    saved.run.outcome = 'defeat';
+    this.settleRun(saved.run, 'defeat');
+    this.persist();
+  }
+
+  private resumeRun() {
+    const saved = loadRun(this.storage);
+    if (!saved) { this.toast('Aucune expédition valide à reprendre.', 'warn'); this.show('menu'); return; }
+    this.run = saved.run;
+    this.ending = false;
+    this.selectedNode = null;
+    this.driveSalt = saved.driveSalt;
+    this.eventResult = saved.post.eventResult;
+    this.rewardOffers = saved.post.rewardOffers;
+    this.workshopOffers = saved.post.workshopOffers;
+    this.campUsed = new Set(saved.post.campUsed);
+    this.toast(`Expédition ${saved.run.seed} reprise.`);
+    // profile.runs n'est volontairement PAS incrémenté : c'est la même expédition
+    const node = saved.run.currentId ? saved.run.map.nodes[saved.run.currentId] : null;
+    if (saved.phase === 'drive' && node) this.startDrive(node.type === 'final' ? 'final' : node.type, () => this.afterSegment());
+    else if (saved.phase === 'post' && node) {
+      this.scene.startDemo(node.biome);
+      this.show(node.type === 'event' ? 'event' : node.type === 'route' ? 'reward' : node.type === 'workshop' ? 'workshop' : 'camp');
+    } else this.toMap();
+  }
+
   startRun(seedInput?: string) {
     const clean = (seedInput ?? '').toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 16);
     const seed = clean || randomSeedString();
@@ -421,6 +493,11 @@ export class App {
     this.selectedNode = null;
     this.driveSalt = 0;
     this.save.profile.runs += 1;
+    this.eventResult = null;
+    this.rewardOffers = [];
+    this.workshopOffers = [];
+    this.campUsed.clear();
+    clearRun(this.storage);
     this.persist();
     this.toast(`Expédition ${seed} : bonne route.`);
     this.toMap();
@@ -537,6 +614,7 @@ export class App {
     if (rep.hunger) this.toast('Plus de provisions : l\'équipage affamé (−12 % PV)', 'warn');
     const node = run.map.nodes[id];
     const kind: SegmentKind = node.type === 'final' ? 'final' : node.type;
+    this.saveRun('drive');
     this.startDrive(kind, () => this.afterSegment());
   }
 
@@ -705,7 +783,7 @@ export class App {
         <button class="btn ghost" data-act="pause-settings">Paramètres</button>
         ${inRun ? '<button class="btn danger" data-act="abandon">Abandonner l\'expédition</button>' : ''}
       </div>
-      <p class="muted" style="margin-top:12px">Quitter termine l'expédition (pas de reprise en V1).</p></div>`;
+      <p class="muted" style="margin-top:12px">${this.storage ? 'L\'expédition est sauvegardée à chaque étape : vous pourrez la reprendre depuis le menu (en pleine conduite, le segment recommence depuis son début). Abandonner la termine.' : 'Stockage local indisponible : l\'expédition ne pourra pas être reprise après avoir quitté.'}</p></div>`;
   }
 
   resume() {
@@ -724,7 +802,7 @@ export class App {
     this.overlayEl.classList.remove('hidden');
     this.overlayEl.innerHTML = `<div class="panel narrow" style="text-align:center">
       <h2>Abandonner ?</h2>
-      <p>L'expédition sera terminée. Vous conservez les pièces de convoi méritées jusqu'ici.</p>
+      <p>L'expédition sera terminée et ne pourra plus être reprise. Vous conservez les pièces de convoi méritées jusqu'ici.</p>
       <div class="row center" style="margin-top:12px"><button class="btn ghost" data-act="resume">Annuler</button><button class="btn danger" data-act="abandon-yes">Abandonner</button></div></div>`;
   }
 
@@ -762,6 +840,7 @@ export class App {
     if (res.effect.hpPct) parts.push(res.effect.hpPct.pct > 0 ? '' : '');
     this.eventResult = { text: parts.filter(Boolean).join(' '), ambush: !!res.effect.ambush };
     this.renderEvent();
+    this.saveRun('post'); // « choix déjà fait » conservé : pas de second tirage possible
   }
 
   private renderReward() {
@@ -803,12 +882,8 @@ export class App {
   }
 
   // =================================================================== fin d'expédition
-  endRun(outcome: 'victory' | 'defeat', reason = '') {
-    const run = this.run;
-    if (!run || run.outcome || this.ending) return;
-    this.ending = true;
-    run.outcome = outcome;
-    run.defeatReason = reason;
+  /** Attribue les pièces et met à jour le profil (hors compteur `runs`, incrémenté au lancement). */
+  private settleRun(run: RunState, outcome: 'victory' | 'defeat'): number {
     const coins = coinsEarned(run);
     this.save.coins += coins;
     const p = this.save.profile;
@@ -816,6 +891,17 @@ export class App {
     p.bestSteps = Math.max(p.bestSteps, run.stats.stepsCleared);
     p.totalKills += run.stats.kills;
     p.totalCoinsEarned += coins;
+    return coins;
+  }
+
+  endRun(outcome: 'victory' | 'defeat', reason = '') {
+    const run = this.run;
+    if (!run || run.outcome || this.ending) return;
+    this.ending = true;
+    run.outcome = outcome;
+    run.defeatReason = reason;
+    clearRun(this.storage);
+    const coins = this.settleRun(run, outcome);
     this.persist();
     this.paused = false;
     this.scene.paused = false;
