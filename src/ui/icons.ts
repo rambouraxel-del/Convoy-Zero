@@ -9,5 +9,5 @@ export const ICON: Record<ResourceKey, string> = {
 export const RES_NAME: Record<ResourceKey, string> = { fuel: 'Carburant', scrap: 'Ferraille', food: 'Provisions' };
 
 export function resHtml(k: ResourceKey, v: number, extra = ''): string {
-  return `<span class="res" title="${RES_NAME[k]}" data-res="${k}">${ICON[k]}<b>${v}</b>${extra}</span>`;
+  return `<span class="res" title="${RES_NAME[k]}" role="img" aria-label="${RES_NAME[k]} : ${v}" data-res="${k}">${ICON[k]}<b aria-hidden="true">${v}</b>${extra}</span>`;
 }

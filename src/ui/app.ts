@@ -643,7 +643,8 @@ export class App {
     this.paused = false;
     this.scene.paused = false;
     this.scene.timeScale = this.testMode ? Number(new URLSearchParams(location.search).get('speed') ?? 1) || 1 : 1;
-    audio.setMood(kind === 'final' ? 'drive' : 'drive');
+    audio.setBiome(node.biome);
+    audio.setMood('drive');
     this.show('drive');
     this.updateModeButton();
     this.hintStep = this.save.tutorialDone ? 99 : 0;
@@ -661,6 +662,7 @@ export class App {
           sim.writeBack(run);
           this.sim = null;
           if (sim.outcome === 'lost') {
+            clearRun(this.storage); // empêche de rejouer le segment perdu par un rechargement
             setTimeout(() => this.endRun('defeat', 'Le Mastodonte a été détruit'), 1400);
           } else {
             if (!this.save.tutorialDone) { this.save.tutorialDone = true; this.persist(); }
